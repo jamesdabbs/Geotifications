@@ -3,56 +3,57 @@ import UIKit
 class GeotificationManager {
   var all = [Geotification]()
   
-  class func loadAllGeotifications(onComplete: [Geotification] -> ()) {
-    var geotifications = [Geotification]()
-    
-    let url = "http://localhost:4567/geotifications"
+  class func request(verb: String, endpoint: String, body: NSData?, complete: (NSDictionary -> ())?) {
+    let url = "http://localhost:4567\(endpoint)"
     let request = NSMutableURLRequest(URL: NSURL(string: url)!)
-    
     let session = NSURLSession.sharedSession()
-    request.HTTPMethod = "GET"
-    UIApplication.sharedApplication().networkActivityIndicatorVisible = true
+    
+    request.HTTPMethod = verb
+    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.addValue("application/json", forHTTPHeaderField: "Accept")
+    
+    if body != nil {
+      request.HTTPBody = body
+    }
+    
+    let app = UIApplication.sharedApplication()
+    app.networkActivityIndicatorVisible = true
     let task = session.dataTaskWithRequest(request, completionHandler: { data, response, error in
-      UIApplication.sharedApplication().networkActivityIndicatorVisible = false
-      let response = try! NSJSONSerialization.JSONObjectWithData(data!, options: []) as! NSDictionary
-      print("response: \(response)")
-      for (_,geotification) in response {
-        geotifications.append(Geotification.fromJSON(geotification as! NSDictionary))
+      app.networkActivityIndicatorVisible = false
+      
+      // TODO: actual error handling
+      let parsed = try! NSJSONSerialization.JSONObjectWithData(data!, options: []) as! NSDictionary
+      
+      if let _complete = complete {
+        _complete(parsed)
+      }
+    })
+    task.resume()
+  }
+  
+  
+  class func loadAllGeotifications(onComplete: [Geotification] -> ()) {
+    request("GET", endpoint: "/geotifications", body: nil, complete: { response in
+      var geotifications = [Geotification]()
+      for (_,gd) in response {
+        geotifications.append(Geotification.fromJSON(gd as! NSDictionary))
       }
       onComplete(geotifications)
     })
-    task.resume()
   }
   
   func add(geotification: Geotification) {
     all.append(geotification)
-    
-    UIApplication.sharedApplication().networkActivityIndicatorVisible = true
-    
-    let url = "http://localhost:4567/geotifications"
-    let request = NSMutableURLRequest(URL: NSURL(string: url)!)
-    
-    let session = NSURLSession.sharedSession()
-    request.HTTPMethod = "POST"
-    request.HTTPBody = geotification.toJSON()
-    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.addValue("application/json", forHTTPHeaderField: "Accept")
-    
-    let task = session.dataTaskWithRequest(request, completionHandler: { data, response, error in
-      UIApplication.sharedApplication().networkActivityIndicatorVisible = false
-      guard data != nil else {
-        print("Failed to create geotification: \(error)")
-        return
-      }
-    })
-    task.resume()
+    // TODO: remove from UI if API save fails
+    GeotificationManager.request("POST", endpoint: "/geotification", body: geotification.toJSON(), complete: nil)
   }
   
   func delete(geotification: Geotification) {
-    // TODO: make delete request
     if let indexInArray = all.indexOf(geotification) {
       all.removeAtIndex(indexInArray)
     }
+    // TODO: what if the delete fails?
+    GeotificationManager.request("DELETE", endpoint: "/geotifications/\(geotification.identifier)", body: nil, complete: nil)
   }
   
   func fetchAll(then: () -> ()) {
