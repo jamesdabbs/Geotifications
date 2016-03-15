@@ -1,11 +1,3 @@
-//
-//  AppDelegate.swift
-//  Geotify
-//
-//  Created by Ken Toh on 24/1/15.
-//  Copyright (c) 2015 Ken Toh. All rights reserved.
-//
-
 import UIKit
 import CoreLocation
 
@@ -14,10 +6,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
 
   var window: UIWindow?
   let locationManager = CLLocationManager()
+  let geotificationManager = GeotificationManager() // TODO: share this w/ ViewController
 
   func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
     locationManager.delegate = self
     locationManager.requestAlwaysAuthorization()
+    
+    geotificationManager.fetchAll({}) // TODO: what if this fetch hasn't finished by the time we need it?
   
     application.registerUserNotificationSettings(UIUserNotificationSettings(forTypes: [.Sound, .Alert, .Badge], categories: nil))
     UIApplication.sharedApplication().cancelAllLocalNotifications()
@@ -27,14 +22,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
   
   func handleRegionEvent(region: CLRegion!) {
     if UIApplication.sharedApplication().applicationState == .Active {
-      if let message = noteFromRegionIdentifier(region.identifier) {
+      if let message = geotificationManager.noteFromRegionIdentifier(region.identifier) {
         if let viewController = window?.rootViewController {
           showSimpleAlertWithTitle(nil, message: message, viewController: viewController)
         }
       }
     } else {
       let notification = UILocalNotification()
-      notification.alertBody = noteFromRegionIdentifier(region.identifier)
+      notification.alertBody = geotificationManager.noteFromRegionIdentifier(region.identifier)
       notification.soundName = "Default"
       UIApplication.sharedApplication().presentLocalNotificationNow(notification)
     }
@@ -50,19 +45,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
     if region is CLCircularRegion {
       handleRegionEvent(region)
     }
-  }
-  
-  func noteFromRegionIdentifier(identifier: String) -> String? {
-    if let savedItems = NSUserDefaults.standardUserDefaults().arrayForKey(kSavedItemsKey) {
-      for savedItem in savedItems {
-        if let geotification = NSKeyedUnarchiver.unarchiveObjectWithData(savedItem as! NSData) as? Geotification {
-          if geotification.identifier == identifier {
-            return geotification.note
-          }
-        }
-      }
-    }
-    return nil
   }
 
   func applicationWillResignActive(application: UIApplication) {

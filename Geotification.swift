@@ -10,19 +10,12 @@ import UIKit
 import MapKit
 import CoreLocation
 
-let kGeotificationLatitudeKey = "latitude"
-let kGeotificationLongitudeKey = "longitude"
-let kGeotificationRadiusKey = "radius"
-let kGeotificationIdentifierKey = "identifier"
-let kGeotificationNoteKey = "note"
-let kGeotificationEventTypeKey = "eventType"
-
 enum EventType: Int {
   case OnEntry = 0
   case OnExit
 }
 
-class Geotification: NSObject, NSCoding, MKAnnotation {
+class Geotification: NSObject, MKAnnotation {
   var coordinate: CLLocationCoordinate2D
   var radius: CLLocationDistance
   var identifier: String
@@ -48,25 +41,24 @@ class Geotification: NSObject, NSCoding, MKAnnotation {
     self.note = note
     self.eventType = eventType
   }
-
-  // MARK: NSCoding
-
-  required init?(coder decoder: NSCoder) {
-    let latitude = decoder.decodeDoubleForKey(kGeotificationLatitudeKey)
-    let longitude = decoder.decodeDoubleForKey(kGeotificationLongitudeKey)
-    coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    radius = decoder.decodeDoubleForKey(kGeotificationRadiusKey)
-    identifier = decoder.decodeObjectForKey(kGeotificationIdentifierKey) as! String
-    note = decoder.decodeObjectForKey(kGeotificationNoteKey) as! String
-    eventType = EventType(rawValue: decoder.decodeIntegerForKey(kGeotificationEventTypeKey))!
+  
+  // MARK: JSON serialization
+  
+  func toJSON() -> NSData {
+    let params = ["latitude": coordinate.latitude, "longitude": coordinate.longitude, "radius": radius, "identifier": identifier, "note": note]
+    
+    let json = try! NSJSONSerialization.dataWithJSONObject(params, options: [])
+    return json
   }
-
-  func encodeWithCoder(coder: NSCoder) {
-    coder.encodeDouble(coordinate.latitude, forKey: kGeotificationLatitudeKey)
-    coder.encodeDouble(coordinate.longitude, forKey: kGeotificationLongitudeKey)
-    coder.encodeDouble(radius, forKey: kGeotificationRadiusKey)
-    coder.encodeObject(identifier, forKey: kGeotificationIdentifierKey)
-    coder.encodeObject(note, forKey: kGeotificationNoteKey)
-    coder.encodeInt(Int32(eventType.rawValue), forKey: kGeotificationEventTypeKey)
+  
+  class func fromJSON(data: NSDictionary) -> Geotification {
+    let lat = data["latitude"] as! CLLocationDegrees
+    let lon = data["longitude"] as! CLLocationDegrees
+    let coordinate = CLLocationCoordinate2DMake(lat, lon)
+    
+    let radius = data["radius"] as! CLLocationDistance
+    let identifier = data["identifier"] as! String
+    let note = data["note"] as! String
+    return Geotification(coordinate: coordinate, radius: radius, identifier: identifier, note: note, eventType: .OnEntry)
   }
 }

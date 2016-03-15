@@ -10,20 +10,28 @@ import UIKit
 import MapKit
 import CoreLocation
 
-let kSavedItemsKey = "savedItems"
 
 class GeotificationsViewController: UIViewController, AddGeotificationsViewControllerDelegate, MKMapViewDelegate, CLLocationManagerDelegate {
 
   @IBOutlet weak var mapView: MKMapView!
 
-  var geotifications = [Geotification]()
+  var geotifications = GeotificationManager()
   let locationManager = CLLocationManager()
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    
     locationManager.delegate = self
     locationManager.requestAlwaysAuthorization()
-    loadAllGeotifications()
+    
+    // TODO: package this fetch up a little better
+    geotifications.fetchAll() {
+      dispatch_async(dispatch_get_main_queue(), {
+        for geotification in self.geotifications.all {
+          self.attachGeotification(geotification)
+        }
+      })
+    }
   }
 
   override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
@@ -80,52 +88,24 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
     print("Location manager failed: \(error)")
   }
 
-  // MARK: Loading and saving functions
-
-  func loadAllGeotifications() {
-    geotifications = []
-
-    if let savedItems = NSUserDefaults.standardUserDefaults().arrayForKey(kSavedItemsKey) {
-      for savedItem in savedItems {
-        if let geotification = NSKeyedUnarchiver.unarchiveObjectWithData(savedItem as! NSData) as? Geotification {
-          addGeotification(geotification)
-        }
-      }
-    }
-  }
-
-  func saveAllGeotifications() {
-    let items = NSMutableArray()
-    for geotification in geotifications {
-      let item = NSKeyedArchiver.archivedDataWithRootObject(geotification)
-      items.addObject(item)
-    }
-    NSUserDefaults.standardUserDefaults().setObject(items, forKey: kSavedItemsKey)
-    NSUserDefaults.standardUserDefaults().synchronize()
-  }
-
   // MARK: Functions that update the model/associated views with geotification changes
 
-  func addGeotification(geotification: Geotification) {
-    geotifications.append(geotification)
+  func attachGeotification(geotification: Geotification) {
     mapView.addAnnotation(geotification)
     addRadiusOverlayForGeotification(geotification)
     updateGeotificationsCount()
   }
 
   func removeGeotification(geotification: Geotification) {
-    if let indexInArray = geotifications.indexOf(geotification) {
-      geotifications.removeAtIndex(indexInArray)
-    }
-
+    geotifications.delete(geotification)
     mapView.removeAnnotation(geotification)
     removeRadiusOverlayForGeotification(geotification)
     updateGeotificationsCount()
   }
 
   func updateGeotificationsCount() {
-    title = "Geotifications (\(geotifications.count))"
-    navigationItem.rightBarButtonItem?.enabled = (geotifications.count < 20)
+    title = "Geotifications (\(geotifications.count()))"
+    navigationItem.rightBarButtonItem?.enabled = (geotifications.count() < 20)
   }
 
   // MARK: AddGeotificationViewControllerDelegate
@@ -135,9 +115,9 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
     let clampedRadius = (radius > locationManager.maximumRegionMonitoringDistance) ? locationManager.maximumRegionMonitoringDistance : radius
     // Add geotification
     let geotification = Geotification(coordinate: coordinate, radius: clampedRadius, identifier: identifier, note: note, eventType: eventType)
-    addGeotification(geotification)
+    attachGeotification(geotification)
+    geotifications.add(geotification)
     startMonitoringGeotification(geotification)
-    saveAllGeotifications()
   }
 
   // MARK: MKMapViewDelegate
@@ -173,11 +153,9 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
   }
 
   func mapView(mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-    // Delete geotification
     let geotification = view.annotation as! Geotification
     stopMonitoringGeotification(geotification)
     removeGeotification(geotification)
-    saveAllGeotifications()
   }
 
   // MARK: Map overlay functions
