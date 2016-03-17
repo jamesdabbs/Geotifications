@@ -1,11 +1,3 @@
-//
-//  GeotificationsViewController.swift
-//  Geotify
-//
-//  Created by Ken Toh on 24/1/15.
-//  Copyright (c) 2015 Ken Toh. All rights reserved.
-//
-
 import UIKit
 import MapKit
 import CoreLocation
@@ -91,12 +83,14 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
   // MARK: Functions that update the model/associated views with geotification changes
 
   func attachGeotification(geotification: Geotification) {
+    startMonitoringGeotification(geotification)
     mapView.addAnnotation(geotification)
     addRadiusOverlayForGeotification(geotification)
     updateGeotificationsCount()
   }
 
   func removeGeotification(geotification: Geotification) {
+    stopMonitoringGeotification(geotification)
     geotifications.delete(geotification)
     mapView.removeAnnotation(geotification)
     removeRadiusOverlayForGeotification(geotification)
@@ -122,7 +116,7 @@ class GeotificationsViewController: UIViewController, AddGeotificationsViewContr
 
   // MARK: MKMapViewDelegate
 
-  func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView! {
+  func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
     let identifier = "myGeotification"
     if annotation is Geotification {
       var annotationView = mapView.dequeueReusableAnnotationViewWithIdentifier(identifier) as? MKPinAnnotationView

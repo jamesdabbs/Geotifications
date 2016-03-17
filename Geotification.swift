@@ -1,11 +1,3 @@
-//
-//  Geotification.swift
-//  Geotify
-//
-//  Created by Ken Toh on 24/1/15.
-//  Copyright (c) 2015 Ken Toh. All rights reserved.
-//
-
 import UIKit
 import MapKit
 import CoreLocation
@@ -36,17 +28,22 @@ class Geotification: NSObject, MKAnnotation {
 
   init(coordinate: CLLocationCoordinate2D, radius: CLLocationDistance, identifier: String, note: String, eventType: EventType) {
     self.coordinate = coordinate
-    self.radius = radius
+    self.radius     = radius
     self.identifier = identifier
-    self.note = note
-    self.eventType = eventType
+    self.note       = note
+    self.eventType  = eventType
   }
   
   // MARK: JSON serialization
   
   func toJSON() -> NSData {
-    let params = ["latitude": coordinate.latitude, "longitude": coordinate.longitude, "radius": radius, "identifier": identifier, "note": note]
-    
+    let params = [
+      "latitude":   coordinate.latitude,
+      "longitude":  coordinate.longitude,
+      "radius":     radius,
+      "identifier": identifier,
+      "name":       note
+      ]
     let json = try! NSJSONSerialization.dataWithJSONObject(params, options: [])
     return json
   }
@@ -57,8 +54,8 @@ class Geotification: NSObject, MKAnnotation {
     let coordinate = CLLocationCoordinate2DMake(lat, lon)
     
     let radius = data["radius"] as! CLLocationDistance
-    let identifier = data["identifier"] as! String
-    let note = data["note"] as! String
+    let identifier = data["uuid"] as! String
+    let note = data["name"] as! String
     return Geotification(coordinate: coordinate, radius: radius, identifier: identifier, note: note, eventType: .OnEntry)
   }
 }

@@ -1,6 +1,11 @@
 import UIKit
 import CoreLocation
 
+import AWSCore
+import AWSSQS
+
+
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate {
 
@@ -9,42 +14,51 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
   let geotificationManager = GeotificationManager() // TODO: share this w/ ViewController
 
   func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+    geotificationManager.fetchAll({}) // TODO: what if this fetch hasn't finished by the time we need it?
+
     locationManager.delegate = self
     locationManager.requestAlwaysAuthorization()
     
-    geotificationManager.fetchAll({}) // TODO: what if this fetch hasn't finished by the time we need it?
-  
+    for region in locationManager.monitoredRegions {
+      locationManager.stopMonitoringForRegion(region)
+    }
+    
+    AWSServiceManager.defaultServiceManager().defaultServiceConfiguration = AWS_CONFIG
+    
     application.registerUserNotificationSettings(UIUserNotificationSettings(forTypes: [.Sound, .Alert, .Badge], categories: nil))
     UIApplication.sharedApplication().cancelAllLocalNotifications()
     
     return true
   }
-  
-  func handleRegionEvent(region: CLRegion!) {
-    if UIApplication.sharedApplication().applicationState == .Active {
-      if let message = geotificationManager.noteFromRegionIdentifier(region.identifier) {
+
+  func handleRegionEvent(region: CLRegion!, direction: EventType) {
+    guard region is CLCircularRegion else {
+      print("Can't handle non-circular regions")
+      return
+    }
+    
+    if let geotification = geotificationManager.geotificationFromRegionIdentifier(region.identifier) {
+      Checkin(location: geotification, direction: direction).publish()
+      
+      if UIApplication.sharedApplication().applicationState == .Active {
         if let viewController = window?.rootViewController {
-          showSimpleAlertWithTitle(nil, message: message, viewController: viewController)
+          showSimpleAlertWithTitle(nil, message: geotification.note, viewController: viewController)
         }
+      } else {
+        let notification = UILocalNotification()
+        notification.alertBody = geotification.note
+        notification.soundName = "Default"
+        UIApplication.sharedApplication().presentLocalNotificationNow(notification)
       }
-    } else {
-      let notification = UILocalNotification()
-      notification.alertBody = geotificationManager.noteFromRegionIdentifier(region.identifier)
-      notification.soundName = "Default"
-      UIApplication.sharedApplication().presentLocalNotificationNow(notification)
     }
   }
   
   func locationManager(manager: CLLocationManager, didEnterRegion region: CLRegion) {
-    if region is CLCircularRegion {
-      handleRegionEvent(region)
-    }
+    handleRegionEvent(region, direction: .OnEntry)
   }
   
   func locationManager(manager: CLLocationManager, didExitRegion region: CLRegion) {
-    if region is CLCircularRegion {
-      handleRegionEvent(region)
-    }
+    handleRegionEvent(region, direction: .OnExit)
   }
 
   func applicationWillResignActive(application: UIApplication) {

@@ -1,11 +1,3 @@
-//
-//  AddGeotificationViewController.swift
-//  Geotify
-//
-//  Created by Ken Toh on 24/1/15.
-//  Copyright (c) 2015 Ken Toh. All rights reserved.
-//
-
 import UIKit
 import MapKit
 

@@ -1,11 +1,3 @@
-//
-//  Utilities.swift
-//  Geotify
-//
-//  Created by Ken Toh on 3/3/15.
-//  Copyright (c) 2015 Ken Toh. All rights reserved.
-//
-
 import UIKit
 import MapKit
 
@@ -23,4 +15,18 @@ func zoomToUserLocationInMapView(mapView: MKMapView) {
     let region = MKCoordinateRegionMakeWithDistance(coordinate, 10000, 10000)
     mapView.setRegion(region, animated: true)
   }
+}
+
+// MARK: Formatting Functions
+
+func stringify(data: AnyObject) -> String {
+  let json = try! NSJSONSerialization.dataWithJSONObject(data, options: [])
+  return String(data: json, encoding: NSUTF8StringEncoding)!
+}
+
+func standardizeDate(date: NSDate) -> String {
+  let dateFormatter = NSDateFormatter()
+  dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+
+  return dateFormatter.stringFromDate(date)  
 }
