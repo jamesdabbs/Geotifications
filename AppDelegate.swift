@@ -11,11 +11,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
 
   var window: UIWindow?
   let locationManager = CLLocationManager()
-  let geotificationManager = GeotificationManager() // TODO: share this w/ ViewController
+  let geotificationManager = GeotificationManager.sharedInstance
 
   func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
-    geotificationManager.fetchAll({}) // TODO: what if this fetch hasn't finished by the time we need it?
 
+    geotificationManager.fetchAll({})
+    
     locationManager.delegate = self
     locationManager.requestAlwaysAuthorization()
     
@@ -42,11 +43,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
       
       if UIApplication.sharedApplication().applicationState == .Active {
         if let viewController = window?.rootViewController {
-          showSimpleAlertWithTitle(nil, message: geotification.note, viewController: viewController)
+          showSimpleAlertWithTitle(nil, message: geotification.title!, viewController: viewController)
         }
       } else {
         let notification = UILocalNotification()
-        notification.alertBody = geotification.note
+        notification.alertBody = geotification.title
         notification.soundName = "Default"
         UIApplication.sharedApplication().presentLocalNotificationNow(notification)
       }

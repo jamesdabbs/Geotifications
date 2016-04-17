@@ -2,6 +2,10 @@ import UIKit
 
 import AWSSQS
 
+enum EventType: Int {
+  case OnEntry = 0
+  case OnExit
+}
 
 class Checkin: NSObject {
   var location: Geotification
@@ -23,7 +27,7 @@ class Checkin: NSObject {
     // TODO actual latitude and longitude at time of checkin
     let params: Dictionary<String, AnyObject> = [
       "device":    DEVICE_UUID,
-      "location":  location.identifier,
+      "location":  location.identifier!,
       "at":        standardizeDate(NSDate()),
       "direction": (direction == .OnEntry ? "entering" : "exiting")
     ]

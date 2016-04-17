@@ -1,7 +1,19 @@
 import UIKit
+import CoreLocation
 
-class GeotificationManager {
+class GeotificationManager: NSObject, CLLocationManagerDelegate {
+  static let sharedInstance = GeotificationManager()
+  
+  let locationManager = CLLocationManager()
+  
   var all = [Geotification]()
+  
+  override init() {
+    super.init()
+    
+    locationManager.delegate = self
+    locationManager.requestAlwaysAuthorization()
+  }
   
   class func request(verb: String, endpoint: String, body: NSData?, complete: (NSDictionary -> ())?) {
     let url = "\(SERVER_URL)\(endpoint)"
@@ -39,18 +51,29 @@ class GeotificationManager {
     })
   }
   
-  func add(geotification: Geotification) {
+  func register(geotification: Geotification) {
+    // Question: is there a better way to "update" monitoring?
+    // Question: what to do with the UI if an API call fails (and similarly for unregister)?
+    if let i = all.indexOf({$0.identifier == geotification.identifier}) {
+      let old = all.removeAtIndex(i)
+      stopMonitoring(old)
+      
+      GeotificationManager.request("PUT", endpoint: "/locations/\(geotification.identifier!)", body: geotification.toJSON(), complete: nil)
+    } else {
+      GeotificationManager.request("POST", endpoint: "/locations", body: geotification.toJSON(), complete: nil)
+    }
+    
+    startMonitoring(geotification)
     all.append(geotification)
-    // TODO: remove from UI if API save fails
-    GeotificationManager.request("POST", endpoint: "/locations", body: geotification.toJSON(), complete: nil)
   }
   
-  func delete(geotification: Geotification) {
+  func unregister(geotification: Geotification) {
     if let indexInArray = all.indexOf(geotification) {
       all.removeAtIndex(indexInArray)
     }
-    // TODO: what if the delete fails?
-    GeotificationManager.request("DELETE", endpoint: "/locations/\(geotification.identifier)", body: nil, complete: nil)
+    stopMonitoring(geotification)
+    
+    GeotificationManager.request("DELETE", endpoint: "/locations/\(geotification.identifier!)", body: nil, complete: nil)
   }
   
   func fetchAll(then: () -> ()) {
@@ -71,5 +94,51 @@ class GeotificationManager {
       }
     }
     return nil
+  }
+  
+  // MARK - CLLocationManager delegate methods
+  
+  func locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus) {
+    print("Location authorization status changed: \(status)")
+  }
+  
+  func locationManager(manager: CLLocationManager, monitoringDidFailForRegion region: CLRegion?, withError error: NSError) {
+    print("Monitoring failed for region \(region?.identifier)")
+  }
+  
+  func locationManager(manager: CLLocationManager, didFailWithError error: NSError) {
+    print("Location manager failed: \(error)")
+  }
+  
+  // MARK - other LocationManager methods
+  
+  func monitoredRegionFor(geotification: Geotification) -> CLCircularRegion? {
+    for r in locationManager.monitoredRegions {
+      if let circle = r as? CLCircularRegion {
+        if circle.identifier == geotification.identifier {
+          return circle
+        }
+      }
+    }
+    return nil
+  }
+  
+  func startMonitoring(geotification: Geotification) {
+    if !CLLocationManager.isMonitoringAvailableForClass(CLCircularRegion) {
+      print("Geofencing is not supported")
+      return
+    }
+    
+    if CLLocationManager.authorizationStatus() != .AuthorizedAlways {
+      print("Geotification saved, but will not be enabled until you allow access to the device location")
+    }
+    
+    locationManager.startMonitoringForRegion(geotification.region())
+  }
+  
+  func stopMonitoring(geotification: Geotification) {
+    if let r = monitoredRegionFor(geotification) {
+      locationManager.stopMonitoringForRegion(r)
+    }
   }
 }
